@@ -1,0 +1,19 @@
+{
+  "speed": "normal",
+  "stop_key": "esc",
+  "countdown_seconds": 5,
+  "shift_enter": false,
+  "long_pause_probability": 0.02,
+  "window_check_every": 5,
+  "profiles": {
+    "lenta": {
+      "base_ms": 340
+    },
+    "normal": {
+      "base_ms": 200
+    },
+    "rapida": {
+      "base_ms": 120
+    }
+  }
+}
