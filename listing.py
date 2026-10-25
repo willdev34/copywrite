@@ -7,7 +7,7 @@ from dataclasses import dataclass
 # Marcadores do Word que chegam como caracteres de uso privado (fonte Symbol/Wingdings)
 PRIVATE_MARKERS: dict[str, str] = {"": "•", "": "▪"}
 
-BULLETS = "•-*–—▪○◦·■□●‣"
+BULLETS = "•-*–▪○◦·■□●‣"
 
 _LIST_RE = re.compile(
     r"^(?P<indent>[ \t]*)"
@@ -100,7 +100,9 @@ def build_actions(text: str, auto_list: bool = False) -> list[Action]:
         elif not prev_item:
             stack = []
             level = _level_for(stack, item.indent_width)
-            actions.extend(_literal(f"{item.marker} {item.text}"))
+            # Word, Docs e Notion só convertem "-" ou "*" em lista, então símbolos viram "-"
+            marker = "-" if item.marker in BULLETS else item.marker
+            actions.extend(_literal(f"{marker} {item.text}"))
         else:
             new_level = _level_for(stack, item.indent_width)
             diff = new_level - level

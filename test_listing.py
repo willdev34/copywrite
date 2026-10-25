@@ -66,3 +66,19 @@ def test_linha_em_branco_encerra_bloco():
     actions = build_actions("- a\n\n- b", auto_list=True)
     assert typed(actions) == "- a- b"
     assert kinds(actions).count("enter") == 1
+
+
+def test_auto_list_bullet_simbolo_vira_hifen():
+    for symbol in "•▪○–*":
+        assert typed(build_actions(f"{symbol} a\n{symbol} b", auto_list=True)) == "- ab"
+
+
+def test_auto_list_numeracao_preservada():
+    assert typed(build_actions("1) a\n2) b", auto_list=True)) == "1) ab"
+    assert typed(build_actions("a) x\nb) y", auto_list=True)) == "a) xy"
+
+
+def test_travessao_longo_nao_e_lista():
+    assert parse_list_line("— Olá, disse ele.") is None
+    assert typed(build_actions("— Olá\n— Oi", auto_list=True)) == "— Olá— Oi"
+    assert "enter_plain" not in kinds(build_actions("— Olá\n— Oi", auto_list=True))
