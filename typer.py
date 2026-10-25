@@ -8,6 +8,8 @@ import threading
 from ctypes import wintypes
 from typing import Any, Callable
 
+from listing import Action, build_actions
+
 IS_WINDOWS: bool = os.name == "nt"
 
 INPUT_KEYBOARD = 1
@@ -117,6 +119,21 @@ def press_enter(use_shift: bool) -> None:
     )
 
 
+def press_tab(shift: bool) -> None:
+    """Tab ou Shift+Tab (recuo e retorno de nível em listas)."""
+    if not shift:
+        press_vk(VK_TAB)
+        return
+    _send(
+        [
+            _key_input(vk=VK_SHIFT),
+            _key_input(vk=VK_TAB),
+            _key_input(vk=VK_TAB, flags=KEYEVENTF_KEYUP),
+            _key_input(vk=VK_SHIFT, flags=KEYEVENTF_KEYUP),
+        ]
+    )
+
+
 def get_foreground_window() -> int:
     """Handle da janela ativa (0 fora do Windows)."""
     if not IS_WINDOWS:
@@ -160,7 +177,7 @@ class Typer:
         """Valida e inicia a digitação na janela que estiver ativa."""
         if self.running:
             return
-        text = text.replace("\r\n", "\n").replace("\r", "\n")
+        actions = build_actions(text, bool(self.config.get("auto_list", False)))
         if not text.strip():
             self.on_error("O texto está vazio.")
             return
@@ -172,7 +189,7 @@ class Typer:
             self.on_error("Nenhum app de destino ativo. Clique no campo onde o texto deve ser digitado.")
             return
         self._stop.clear()
-        self._thread = threading.Thread(target=self._run, args=(text, target), daemon=True)
+        self._thread = threading.Thread(target=self._run, args=(actions, target), daemon=True)
         self._thread.start()
 
     def stop(self) -> None:
@@ -186,7 +203,7 @@ class Typer:
 
     def _delay(self, char: str, base_ms: float) -> float:
         """Intervalo em segundos após digitar o caractere."""
-        delay = max(15.0, random.gauss(base_ms, base_ms * 0.3))
+        delay = max(8.0, random.gauss(base_ms, base_ms * 0.3))
         if char == " ":
             delay += base_ms * random.uniform(0.5, 1.2)
         elif char in ",;:":
@@ -196,7 +213,8 @@ class Typer:
         elif char == "\n":
             delay += base_ms * random.uniform(3.0, 6.0)
         if random.random() < float(self.config.get("long_pause_probability", 0.02)):
-            delay += random.uniform(1200.0, 3000.0)  # pausa para "pensar"
+            # pausa para "pensar", proporcional à velocidade para o Turbo não travar
+            delay += random.uniform(1200.0, 3000.0) * min(1.0, base_ms / 200.0)
         return delay / 1000.0
 
     def _wait_for_window(self, target: int) -> bool:
@@ -208,30 +226,37 @@ class Typer:
             self._stop.wait(0.2)
         return False
 
-    def _type_char(self, char: str, shift_enter: bool) -> None:
-        if char == "\n":
+    def _type_action(self, action: Action, shift_enter: bool) -> None:
+        kind, char = action
+        if kind == "enter":
             press_enter(shift_enter)
-        elif char == "\t":
-            press_vk(VK_TAB)
+        elif kind == "enter_plain":
+            press_enter(False)
+        elif kind == "tab":
+            press_tab(False)
+        elif kind == "shift_tab":
+            press_tab(True)
         else:
             press_unicode(char)
 
-    def _run(self, text: str, target: int) -> None:
-        total = len(text)
+    def _run(self, actions: list[Action], target: int) -> None:
+        total = len(actions)
         base_ms = self._base_ms()
-        check_every = max(1, int(self.config.get("window_check_every", 5)))
+        check_every = max(1, int(self.config.get("window_check_every", 1)))
         shift_enter = bool(self.config.get("shift_enter", False))
         completed = False
         try:
-            for index, char in enumerate(text):
+            for index, action in enumerate(actions):
                 if self._stop.is_set():
                     break
                 if index % check_every == 0 and get_foreground_window() != target:
                     if not self._wait_for_window(target):
                         break
-                self._type_char(char, shift_enter)
+                self._type_action(action, shift_enter)
                 self.on_progress(index + 1, total)
-                if self._stop.wait(self._delay(char, base_ms)):
+                kind, char = action
+                pause_char = "\n" if kind in ("enter", "enter_plain") else "\t" if kind != "char" else char
+                if self._stop.wait(self._delay(pause_char, base_ms)):
                     break
             else:
                 completed = True

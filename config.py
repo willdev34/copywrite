@@ -12,20 +12,50 @@ BASE_DIR: Path = (
 )
 CONFIG_PATH: Path = BASE_DIR / "config.json"
 
-DEFAULT_CONFIG: dict[str, Any] = {
-    "speed": "normal",  # lenta, normal ou rapida
-    "stop_key": "esc",
-    "countdown_seconds": 5,
-    "shift_enter": False,
-    "long_pause_probability": 0.02,
-    "window_check_every": 5,  # caracteres entre cada checagem da janela ativa
-    # Intervalo base entre teclas em ms (lenta ~35, normal ~60, rapida ~100 palavras por minuto)
-    "profiles": {
-        "lenta": {"base_ms": 340},
-        "normal": {"base_ms": 200},
-        "rapida": {"base_ms": 120},
-    },
+CONFIG_VERSION = 2
+
+# Chave interna -> rótulo exibido na interface
+SPEED_LABELS: dict[str, str] = {
+    "lenta": "Lenta",
+    "normal": "Normal",
+    "rapida": "Rápida",
+    "muito_rapida": "Muito rápida",
+    "turbo": "Turbo",
 }
+
+DEFAULT_PROFILES: dict[str, dict[str, int]] = {
+    "lenta": {"base_ms": 340},
+    "normal": {"base_ms": 200},
+    "rapida": {"base_ms": 120},
+    "muito_rapida": {"base_ms": 70},
+    "turbo": {"base_ms": 35},
+}
+
+DEFAULT_CONFIG: dict[str, Any] = {
+    "config_version": CONFIG_VERSION,
+    "speed": "normal",  # chave de um perfil em "profiles"
+    "stop_key": "f9",
+    "countdown_seconds": 10,
+    "shift_enter": False,
+    "auto_list": False,  # o destino cria listas sozinho (Word, Docs, Notion)
+    "long_pause_probability": 0.02,
+    "window_check_every": 1,  # caracteres entre cada checagem da janela ativa
+    # Intervalo base entre teclas em ms
+    "profiles": DEFAULT_PROFILES,
+}
+
+
+def _migrate(config: dict[str, Any]) -> bool:
+    """Atualiza configs antigas. Retorna True se algo mudou."""
+    version = config.get("config_version")
+    if isinstance(version, int) and version >= CONFIG_VERSION:
+        return False
+    config["countdown_seconds"] = DEFAULT_CONFIG["countdown_seconds"]
+    profiles = config.setdefault("profiles", {})
+    for key, profile in DEFAULT_PROFILES.items():
+        profiles.setdefault(key, dict(profile))
+    config["config_version"] = CONFIG_VERSION
+    return True
 
 
 def _merge(defaults: dict[str, Any], loaded: dict[str, Any]) -> dict[str, Any]:
@@ -56,4 +86,11 @@ def load_config(path: Path = CONFIG_PATH) -> dict[str, Any]:
     except (OSError, ValueError):
         save_config(DEFAULT_CONFIG, path)
         return json.loads(json.dumps(DEFAULT_CONFIG))
-    return _merge(DEFAULT_CONFIG, loaded)
+    migrated = _migrate(loaded)
+    config = _merge(DEFAULT_CONFIG, loaded)
+    if migrated:
+        try:
+            save_config(config, path)
+        except OSError:
+            pass
+    return config

@@ -8,9 +8,9 @@ Não usa copiar e colar nem a área de transferência. Cada caractere é enviado
 
 1. Cole o texto na janela do CopyWrite.
 2. Escolha a velocidade e clique em "Escreva agora".
-3. A janela minimiza e uma contagem de 5 a 1 aparece no topo da tela.
+3. A janela minimiza e uma contagem de 10 a 1 aparece no topo da tela.
 4. Durante a contagem, clique no campo de destino (navegador, Word, formulário etc.).
-5. Ao chegar em 1, o texto é digitado. Pressione Esc a qualquer momento para parar.
+5. Ao chegar em 1, o texto é digitado. Pressione F9 a qualquer momento para parar.
 
 ## Recursos
 
@@ -18,9 +18,12 @@ Não usa copiar e colar nem a área de transferência. Cada caractere é enviado
 - Keydown e keyup reais para cada caractere.
 - Intervalo variável entre teclas, com pausas maiores após espaço, vírgula, ponto, interrogação e quebra de linha.
 - Pausa longa ocasional, com probabilidade configurável.
-- Três velocidades: lenta, normal e rápida.
+- Cinco velocidades: lenta, normal, rápida, muito rápida e turbo. As pausas longas encolhem junto com a velocidade.
+- Listas e recuos preservados: marcadores (`•`, `-`, `*`, `–`, `▪`, `○`), numeração (`1.`, `1)`, `a)`), Tab e linhas em branco são digitados como vieram. Marcadores do Word em símbolo privado (`\uf0b7`, `\uf0a7`) viram `•` e `▪`.
+- Opção "O destino cria listas sozinho": digita o marcador só no primeiro item do bloco, usa Tab/Shift+Tab para subitens e sai da lista com Enter em item vazio.
+- Interface responsiva: DPI consciente, redimensiona e reorganiza os controles em janelas estreitas.
 - Quebra de linha com Enter ou Shift+Enter.
-- Tecla de parada global (Esc por padrão), mesmo com o foco em outro app.
+- Tecla de parada global (F9 por padrão), mesmo com o foco em outro app.
 - Se a janela ativa mudar durante a digitação, o CopyWrite pausa e avisa. Ele continua quando você volta à janela de destino.
 - Contador de caracteres e barra de progresso.
 
@@ -57,13 +60,15 @@ O arquivo `config.json` aceita:
 
 | Chave | Descrição |
 |---|---|
-| `speed` | `lenta`, `normal` ou `rapida` |
+| `config_version` | versão do arquivo (migrações automáticas; v2 passou a contagem para 10 s) |
+| `speed` | `lenta`, `normal`, `rapida`, `muito_rapida` ou `turbo` |
 | `stop_key` | tecla de parada global |
 | `countdown_seconds` | segundos da contagem |
 | `shift_enter` | usar Shift+Enter na quebra de linha |
+| `auto_list` | o app de destino cria listas sozinho (Word, Docs, Notion) |
 | `long_pause_probability` | chance de pausa longa por caractere (0 a 1) |
 | `window_check_every` | caracteres entre checagens da janela ativa |
-| `profiles` | intervalo base em ms de cada velocidade |
+| `profiles` | intervalo base em ms de cada velocidade (lenta 340, normal 200, rápida 120, muito rápida 70, turbo 35) |
 
 ## Estrutura de pastas
 
@@ -72,8 +77,10 @@ copywrite/
   main.py          interface e fluxo geral
   typer.py         digitação com SendInput
   countdown.py     overlay da contagem
+  listing.py       detecção de listas e plano de teclas (puro)
+  test_listing.py  testes (pytest)
   config.py        leitura e gravação do config
-  config.json      configurações
+  config.json      criado na primeira execução (não versionado)
   requirements.txt
   build.bat
   README.md
@@ -88,6 +95,7 @@ copywrite/
 - [ ] Erros de digitação com correção
 - [x] Detecção de troca de janela
 - [ ] Build do .exe
+- [ ] Formatação rica (negrito, itálico, títulos)
 
 ## Licença
 

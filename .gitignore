@@ -11,5 +11,6 @@ build/
 *.spec
 
 # Local
+config.json
 config.local.json
 .venv/
